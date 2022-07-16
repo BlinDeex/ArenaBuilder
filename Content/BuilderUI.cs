@@ -44,6 +44,7 @@ namespace ArenaBuilder.Content
         private bool sysDescAppended = false;
 
         public string oldWidth = "", oldHeight = "", oldFloors = "", oldSBSpacing = "";
+        bool initUpdated = false;
 
         public override void OnInitialize()
         {
@@ -75,6 +76,7 @@ namespace ArenaBuilder.Content
             DropDownMenuInit();
             FinishedArenaSlot();
             SystemDescUI(panel);
+            
         }
         private void FinishedArenaSlot()
         {
@@ -638,7 +640,20 @@ namespace ArenaBuilder.Content
             Player player = Main.LocalPlayer;
             player.delayUseItem = true;
 
+            if (!initUpdated)
+            {
+                ForceUpdateMatRequirements();
+                initUpdated = true;
+            }
+                
+
             UpdateWeightCirclesColors();
+
+            if(panel.GetDimensions().Center().Y > Main.screenHeight || panel.GetDimensions().Center().X > Main.screenWidth || panel.GetDimensions().Center().X < 0 || panel.GetDimensions().Center().Y < 0)
+            {
+                mainPanel.Left.Set(0, 0);
+                mainPanel.Top.Set(0, 0);
+            }
 
             if (forceNotDragging)
             {
@@ -667,7 +682,6 @@ namespace ArenaBuilder.Content
 
         public void UpdateMatRequirements()
         {
-
             matPlatformCountUI.SetText(Data.platformReq.ToString());
             matStoneCountUI.SetText(Data.stoneBlockReq.ToString());
             matcampfiresCountUI.SetText(Data.campfiresReq.ToString());
