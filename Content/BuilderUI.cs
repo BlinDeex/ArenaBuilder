@@ -12,8 +12,6 @@ using ReLogic.Content;
 using ReLogic.Graphics;
 using Terraria.Audio;
 using Terraria.GameInput;
-using Terraria.ModLoader.IO;
-using ArenaBuilder;
 using ArenaBuilder.Content.Items;
 
 namespace ArenaBuilder.Content
@@ -21,7 +19,8 @@ namespace ArenaBuilder.Content
     public class BuilderUI : UIState
     {
         static public UIData Data => Main.LocalPlayer.GetModPlayer<UIData>();
-        UIPanel panel = new();
+
+        readonly UIPanel panel = new();
         UIPanel sysDesc = new();
         public bool dragging;
         public Vector2 offset;
@@ -38,6 +37,10 @@ namespace ArenaBuilder.Content
         public int PlatformCount, StoneCount, CampfireCount, HeartLanternsCount, BombCount = 0;
 
         UIText matPlatformCountUI, matStoneCountUI, matcampfiresCountUI, matHeartLanternsCountUI, matBombCountUI;
+
+        int updateTimer = 0;
+
+        public readonly SoundStyle menuInvalid = new("ArenaBuilder/Content/Sounds/MenuInvalid");
 
         public bool forceNotDragging = false;
 
@@ -56,7 +59,7 @@ namespace ArenaBuilder.Content
             panel.OnMouseDown += PanelOnMouseDown;
             panel.OnMouseUp += PanelOnMouseUp;
             Append(panel);
-
+            
             UIText header = new("[c/FFBF00:Arena Builder]");
             header.HAlign = 0.5f;
             header.Top.Set(5, 0);
@@ -86,9 +89,25 @@ namespace ArenaBuilder.Content
             ItemOutput.HAlign = 0.535f;
             ItemOutput.VAlign = 0.95f;
             ItemOutput.coloredSlot = true;
+            ItemOutput.input = false;
             ItemOutput.OnMouseOver += GlobalOnMouseOver;
             ItemOutput.OnMouseOut += GlobalOnMouseOut;
+            ItemOutput.OnClick += ItemOutputOnClick;
             panel.Append(ItemOutput);
+        }
+
+        private void ItemOutputOnClick(UIMouseEvent evt, UIElement listeningElement)
+        {
+            if(Data.outputItem.type != ItemID.None && Main.mouseItem.type == ItemID.None)
+            {
+                Main.mouseItem = AssembleItem();
+                ResetEverything();
+                Data.outputItem = new(ItemID.None);
+            }
+            else
+            {
+                SoundEngine.PlaySound(menuInvalid);
+            }
         }
 
         private void GlobalOnMouseOut(UIMouseEvent evt, UIElement listeningElement)
@@ -123,6 +142,11 @@ namespace ArenaBuilder.Content
                 texBox4.hovering = false;
                 return;
             }
+            if (listeningElement == startButton)
+            {
+                startButton.hovering = false;
+                return;
+            }
         }
 
         private void GlobalOnMouseOver(UIMouseEvent evt, UIElement listeningElement)
@@ -155,6 +179,11 @@ namespace ArenaBuilder.Content
             if (listeningElement == texBox4)
             {
                 texBox4.hovering = true;
+                return;
+            }
+            if(listeningElement == startButton)
+            {
+                startButton.hovering = true;
                 return;
             }
         }
@@ -313,6 +342,15 @@ namespace ArenaBuilder.Content
             if (listeningElement == DropDown8)
             Data.Theme = "None";
 
+            RemoveDropDown();
+
+            SoundEngine.PlaySound(SoundID.MenuTick);
+
+            forceNotDragging = true;
+        }
+
+        void RemoveDropDown()
+        {
             DropDown1.Remove();
             DropDown2.Remove();
             DropDown3.Remove();
@@ -321,10 +359,6 @@ namespace ArenaBuilder.Content
             DropDown6.Remove();
             DropDown7.Remove();
             DropDown8.Remove();
-
-            SoundEngine.PlaySound(SoundID.MenuTick);
-
-            forceNotDragging = true;
         }
 
         private void MasterDropDownMenuUI(UIPanel panel)
@@ -341,8 +375,15 @@ namespace ArenaBuilder.Content
 
         private void MasterDropDownUIOnClick(UIMouseEvent evt, UIElement listeningElement)
         {
-            SoundEngine.PlaySound(SoundID.MenuTick);
-            AppendDropDownMenu();
+            if (!Data.startInitiated)
+            {
+                SoundEngine.PlaySound(SoundID.MenuTick);
+                AppendDropDownMenu();
+            }
+            else
+            {
+                SoundEngine.PlaySound(menuInvalid);
+            }
         }
 
         private void AppendDropDownMenu()
@@ -395,6 +436,8 @@ namespace ArenaBuilder.Content
             Campfire.tex = (Texture2D)ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Campfire", AssetRequestMode.ImmediateLoad);
             panel.Append(Campfire);
 
+            
+
             matcampfiresCountUI = new("", 1f, false);
             matcampfiresCountUI.HAlign = 0.91f;
             matcampfiresCountUI.VAlign = 0.578f;
@@ -436,8 +479,54 @@ namespace ArenaBuilder.Content
             startButton.Height.Set(31, 0);
             startButton.HAlign = -0.01f;
             startButton.VAlign = -0.03f;
+            startButton.OnClick += StartButtonOnClick;
+            startButton.OnMouseOver += GlobalOnMouseOver;
+            startButton.OnMouseOut += GlobalOnMouseOut;
+            startButton.OnUpdate += StartButtonUpdate;
 
             panel.Append(startButton);
+        }
+
+        private void StartButtonUpdate(UIElement affectedElement)
+        {
+            if (!Data.startInitiated)
+            {
+                startButton.Width.Set(100, 0);
+                startButton.Height.Set(31, 0);
+            }
+            else
+            {
+                startButton.Width.Set(31, 0);
+                startButton.Height.Set(31, 0);
+            }
+        }
+
+        private void StartButtonOnClick(UIMouseEvent evt, UIElement listeningElement)
+        {
+            if (Data.startInitiated && Data.outputItem.type == ItemID.None)
+            {
+                ResetEverything();
+                UpdateMatRequirements();
+                SoundEngine.PlaySound(SoundID.MenuClose);
+                return;
+            }
+
+            if (Data.validStats && Data.inputSlotItem.type == ModContent.ItemType<ArenaModule>() && !Data.startInitiated && Data.outputItem.type == ItemID.None)
+            {
+                RemoveDropDown();
+                Data.startInitiated = true;
+                Data.inputSlotItem.type = ItemID.None;
+                Data.FinalWidth = Data.Width;
+                Data.FinalHeight = Data.Height;
+                Data.FinalFloors = Data.Floors;
+                Data.FinalSBSpacing = Data.SBSpacing;
+                Data.FinalCampfiresEnabled = Data.CampfiresEnabled;
+                Data.FinalHeartLanternsEnabled = Data.HeartLanternsEnabled;
+                Data.FinalClearAreaEnabled = Data.ClearAreaEnabled;
+                SoundEngine.PlaySound(SoundID.MenuTick);
+                return;
+            }
+                SoundEngine.PlaySound(menuInvalid);
         }
 
         private void BrokenArenaSlotUI(UIPanel panel)
@@ -463,61 +552,147 @@ namespace ArenaBuilder.Content
             Arrow.HAlign = 3f;
             Arrow.VAlign = 0.5f;
             Arrow.Left.Set(50, 0);
-            ItemInput.Append(Arrow);
-            
+            ItemInput.Append(Arrow); 
 
         }
 
         private void BrokenArenaSlotOnClick(UIMouseEvent evt, UIElement listeningElement)
         {
             SoundEngine.PlaySound(SoundID.MenuTick);
-            Player player = Main.LocalPlayer;
-            
-            if (Data.inputSlotItem.type == ItemID.None)
+            _ = Main.LocalPlayer;
+            if (!Data.startInitiated)
+                ForceUpdateMatRequirements();
+            if (!Data.startInitiated)
             {
-                Main.instance.LoadItem(player.HeldItem.type);
-                Data.inputSlotPrefix = player.HeldItem.prefix;
-                Data.inputSlotItem = RemoveHeldItem(player);
-                
-
-                ///////////////////////////////////////
-
-                player.HeldItem.stack -= 1;
-                if(player.HeldItem.type != ItemID.StoneBlock)
+                if (Data.inputSlotItem.type == ItemID.None && Main.mouseItem.type != ItemID.None && !Main.dedServ)
                 {
-                    Data.wrongInputItem = true;
+
+                    Data.inputSlotItem.type = Main.mouseItem.type;
+                    Data.inputSlotItemType = Main.mouseItem.type;
+                    Data.inputSlotItem.maxStack = Main.mouseItem.maxStack;
+
+                    if (Main.mouseItem.type != ModContent.ItemType<ArenaModule>())
+                    {
+                        Data.wrongInputItem = true;
+                    }
+                    else
+                    {
+                        Data.wrongInputItem = false;
+                    }
+
+                    Main.mouseItem.stack -= 1;
+
                 }
                 else
                 {
-                    Data.wrongInputItem = false;
+                    if (Main.mouseItem.type == ItemID.None)
+                    {
+                        Main.mouseItem = new Item(Data.inputSlotItem.type, 1, 0);
+                        Data.inputSlotItem.type = ItemID.None;
+                    }
+                    else if (Main.mouseItem.type == Data.inputSlotItem.type && Main.mouseItem.stack < Data.inputSlotItem.maxStack)
+                    {
+                        Main.mouseItem.stack += new Item(Data.inputSlotItem.type, 1, 0).stack;
+                        Data.inputSlotItem.type = ItemID.None;
+                    }
+                    Data.wrongInputItem = true;
                 }
             }
             else
             {
-                int gg = player.QuickSpawnItem(player.GetSource_FromThis(), new Item(Data.inputSlotItem.type, 1, 0), 1);
-                Main.item[gg].prefix = Data.inputSlotPrefix;
-                Data.inputSlotPrefix = 0;
-                Data.inputSlotItem.type = ItemID.None;
+                if (Main.mouseItem.type == ItemID.WoodPlatform && Data.platformReq > 0)
+                {
+                    if(Data.platformReq < Main.mouseItem.stack)
+                    {
+                        Main.mouseItem.stack -= Data.platformReq;
+                        Data.platformReq = 0;
+                    }
+                    else
+                    {
+                        Data.platformReq -= Main.mouseItem.stack;
+                        Main.mouseItem.TurnToAir();
+                    }
+                }
+                if (Main.mouseItem.type == ItemID.StoneBlock && Data.stoneBlockReq > 0)
+                {
+                    if (Data.stoneBlockReq < Main.mouseItem.stack)
+                    {
+                        Main.mouseItem.stack -= Data.stoneBlockReq;
+                        Data.stoneBlockReq = 0;
+                    }
+                    else
+                    {
+                        Data.stoneBlockReq -= Main.mouseItem.stack;
+                        Main.mouseItem.TurnToAir();
+                    }
+                }
+                if (Main.mouseItem.type == ItemID.Campfire && Data.campfiresReq > 0)
+                {
+                    if (Data.campfiresReq < Main.mouseItem.stack)
+                    {
+                        Main.mouseItem.stack -= Data.campfiresReq;
+                        Data.campfiresReq = 0;
+                    }
+                    else
+                    {
+                        Data.campfiresReq -= Main.mouseItem.stack;
+                        Main.mouseItem.TurnToAir();
+                    }
+                }
+                if (Main.mouseItem.type == ItemID.HeartLantern && Data.heartLanternsReq > 0)
+                {
+                    if (Data.heartLanternsReq < Main.mouseItem.stack)
+                    {
+                        Main.mouseItem.stack -= Data.heartLanternsReq;
+                        Data.heartLanternsReq = 0;
+                    }
+                    else
+                    {
+                        Data.heartLanternsReq -= Main.mouseItem.stack;
+                        Main.mouseItem.TurnToAir();
+                    }
+                }
+                if (Main.mouseItem.type == ItemID.Bomb && Data.bombReq > 0)
+                {
+                    if (Data.bombReq < Main.mouseItem.stack)
+                    {
+                        Main.mouseItem.stack -= Data.bombReq;
+                        Data.bombReq = 0;
+                    }
+                    else
+                    {
+                        Data.bombReq -= Main.mouseItem.stack;
+                        Main.mouseItem.TurnToAir();
+                    }
+                }
             }
-
         }
 
-        public static Item RemoveHeldItem(Player player)
+        public static void ResetEverything()
         {
-            var item = player.HeldItem;
-            if (item.IsAir)
-            {
-                return new Item(0, 0);
-            }
-
-            var copy = item.Clone();
-            copy.noGrabDelay = 100;
-            copy.newAndShiny = false;
-            copy.velocity = Vector2.Zero;
-
-            item.TurnToAir();
-
-            return copy;
+            Data.startInitiated = false;
+            Data.Width = "0";
+            Data.Height = "0";
+            Data.Floors = "0";
+            Data.SBSpacing = "0";
+            Data.CampfiresEnabled = false;
+            Data.HeartLanternsEnabled = false;
+            Data.ClearAreaEnabled = false;
+            Data.Theme = "None";
+            Data.FinalCampfiresEnabled = false;
+            Data.FinalClearAreaEnabled = false;
+            Data.FinalFloors = "0";
+            Data.FinalHeartLanternsEnabled = false;
+            Data.FinalHeight = "0";
+            Data.FinalSBSpacing = "0";
+            Data.FinalWidth = "0";
+            Data.bombReq = 0;
+            Data.campfiresReq = 0;
+            Data.heartLanternsReq = 0;
+            Data.platformReq = 0;
+            Data.stoneBlockReq = 0;
+            Data.totalWeight = 0;
+            Data.validStats = false;
         }
 
         private void ArenaHeartLanternsUI(UIPanel panel)
@@ -533,16 +708,23 @@ namespace ArenaBuilder.Content
 
         private void HeartLanternsUIElemOnClick(UIMouseEvent evt, UIElement listeningElement)
         {
-            SoundEngine.PlaySound(SoundID.MenuTick);
-            if (Data.HeartLanternsEnabled)
+            if (!Data.startInitiated)
             {
-                Data.HeartLanternsEnabled = false;
-                ForceUpdateMatRequirements();
+                SoundEngine.PlaySound(SoundID.MenuTick);
+                if (Data.HeartLanternsEnabled)
+                {
+                    Data.HeartLanternsEnabled = false;
+                    ForceUpdateMatRequirements();
+                }
+                else
+                {
+                    Data.HeartLanternsEnabled = true;
+                    ForceUpdateMatRequirements();
+                }
             }
             else
             {
-                Data.HeartLanternsEnabled = true;
-                ForceUpdateMatRequirements();
+                SoundEngine.PlaySound(menuInvalid);
             }
         }
 
@@ -559,16 +741,23 @@ namespace ArenaBuilder.Content
 
         private void ClearAreaUIElemOnClick(UIMouseEvent evt, UIElement listeningElement)
         {
-            SoundEngine.PlaySound(SoundID.MenuTick);
-            if (Data.ClearAreaEnabled)
+            if (!Data.startInitiated)
             {
-                Data.ClearAreaEnabled = false;
-                ForceUpdateMatRequirements();
+                SoundEngine.PlaySound(SoundID.MenuTick);
+                if (Data.ClearAreaEnabled)
+                {
+                    Data.ClearAreaEnabled = false;
+                    ForceUpdateMatRequirements();
+                }
+                else
+                {
+                    Data.ClearAreaEnabled = true;
+                    ForceUpdateMatRequirements();
+                }
             }
             else
             {
-                Data.ClearAreaEnabled = true;
-                ForceUpdateMatRequirements();
+                SoundEngine.PlaySound(menuInvalid);
             }
         }
 
@@ -585,16 +774,23 @@ namespace ArenaBuilder.Content
 
         private void CampfiresUIElemOnClick(UIMouseEvent evt, UIElement listeningElement)
         {
-            SoundEngine.PlaySound(SoundID.MenuTick);
-            if (Data.CampfiresEnabled)
+            if (!Data.startInitiated)
             {
-                Data.CampfiresEnabled = false;
-                ForceUpdateMatRequirements();
+                SoundEngine.PlaySound(SoundID.MenuTick);
+                if (Data.CampfiresEnabled)
+                {
+                    Data.CampfiresEnabled = false;
+                    ForceUpdateMatRequirements();
+                }
+                else
+                {
+                    Data.CampfiresEnabled = true;
+                    ForceUpdateMatRequirements();
+                }
             }
             else
             {
-                Data.CampfiresEnabled = true;
-                ForceUpdateMatRequirements();
+                SoundEngine.PlaySound(menuInvalid);
             }
         }
 
@@ -630,7 +826,7 @@ namespace ArenaBuilder.Content
 
         private void OnExitButtonClick(UIMouseEvent evt, UIElement listeningElement)
         {
-            SoundEngine.PlaySound(SoundID.MenuTick);
+            SoundEngine.PlaySound(SoundID.MenuClose);
             ArenaInterface.Instance.HideUI();
         }
 
@@ -639,13 +835,36 @@ namespace ArenaBuilder.Content
             base.Update(gameTime);
             Player player = Main.LocalPlayer;
             player.delayUseItem = true;
+            updateTimer++;
 
+            if(updateTimer > 60)
+            {
+                ForceUpdateMatRequirements();
+                updateTimer = 0;
+            }
+            if (Data.startInitiated)
+            {
+                UpdateMatRequirements();
+                if(Data.platformReq == 0 && Data.stoneBlockReq == 0 && Data.campfiresReq == 0 && Data.heartLanternsReq == 0 && Data.bombReq == 0 && Data.outputItem.type == ItemID.None)
+                {
+                    SoundEngine.PlaySound(SoundID.Unlock);
+                    Data.outputItem = AssembleItem();
+                    
+                }
+            }
+            if(Data.inputSlotItem.type != ModContent.ItemType<ArenaModule>())
+            {
+                Data.wrongInputItem = true;
+            }
+            else
+            {
+                Data.wrongInputItem = false;
+            }
             if (!initUpdated)
             {
                 ForceUpdateMatRequirements();
                 initUpdated = true;
             }
-                
 
             UpdateWeightCirclesColors();
 
@@ -680,6 +899,22 @@ namespace ArenaBuilder.Content
             }
         }
 
+        private static Item AssembleItem()
+        {
+            Item item = new(ModContent.ItemType<ArenaPlacer>());
+            ArenaPlacer assembledItem = (ArenaPlacer)item.ModItem;
+            assembledItem.width = int.Parse(Data.FinalWidth);
+            assembledItem.height = int.Parse(Data.FinalHeight);
+            assembledItem.floors = int.Parse(Data.Floors);
+            assembledItem.solidBlockSpacing = int.Parse(Data.FinalSBSpacing);
+            assembledItem.theme = Data.Theme;
+            assembledItem.placeFireplaces = Data.FinalCampfiresEnabled;
+            assembledItem.placeHearts = Data.FinalHeartLanternsEnabled;
+            assembledItem.clearArea = Data.FinalClearAreaEnabled;
+
+            return assembledItem.Item;
+        }
+
         public void UpdateMatRequirements()
         {
             matPlatformCountUI.SetText(Data.platformReq.ToString());
@@ -691,68 +926,72 @@ namespace ArenaBuilder.Content
 
         public void ForceUpdateMatRequirements()
         {
-            if (Data.Width == "" || Data.Height == "" || Data.Floors == "" || Data.SBSpacing == "" || int.Parse(Data.Width) == 0 || int.Parse(Data.Height) == 0 || int.Parse(Data.Floors) == 0 || int.Parse(Data.SBSpacing) == 0)
+            if (!Data.startInitiated)
             {
-                Data.validStats = false;
-                return;
-            }
+                if (Data.Width == "" || Data.Height == "" || Data.Floors == "" || Data.SBSpacing == "" || int.Parse(Data.Width) == 0 || int.Parse(Data.Height) == 0 || int.Parse(Data.Floors) == 0 || int.Parse(Data.SBSpacing) == 0)
+                {
+                    Data.validStats = false;
+                    return;
+                }
 
 
-            int _width = int.Parse(Data.Width);
-            int _height = int.Parse(Data.Height);
-            int _floors = int.Parse(Data.Floors);
-            int _SBSpacing = int.Parse(Data.SBSpacing);
-            Data.platformReq = (int)(_width * _floors / 2.5f);
-            Data.stoneBlockReq = _width / _SBSpacing;
-            if (Data.CampfiresEnabled)
-                Data.campfiresReq = _SBSpacing;
-            if (Data.HeartLanternsEnabled)
-                Data.heartLanternsReq = _SBSpacing;
-            if (Data.ClearAreaEnabled)
-                Data.bombReq = (int)(_width * _height / 100f);
+                int _width = int.Parse(Data.Width);
+                int _height = int.Parse(Data.Height);
+                int _floors = int.Parse(Data.Floors);
+                int _SBSpacing = int.Parse(Data.SBSpacing);
+                Data.platformReq = (int)(_width * _floors / 2.5f);
+                Data.stoneBlockReq = _width / _SBSpacing;
+                if (Data.CampfiresEnabled)
+                    Data.campfiresReq = _SBSpacing;
+                if (Data.HeartLanternsEnabled)
+                    Data.heartLanternsReq = _SBSpacing;
+                if (Data.ClearAreaEnabled)
+                    Data.bombReq = (int)(_width * _height / 100f);
 
-            int _solidBlocks = 0;
+                int _solidBlocks = 0;
 
-            for (int k = 0; k < _width * _floors; k += _SBSpacing)
-            {
-                _solidBlocks++;
-            }
+                for (int k = 0; k < _width * _floors; k += _SBSpacing)
+                {
+                    _solidBlocks++;
+                }
 
 
-            Data.platformReq = _width * _floors - _solidBlocks;
-            Data.stoneBlockReq = _solidBlocks;
-            if (Data.CampfiresEnabled)
-            {
-                Data.campfiresReq = _solidBlocks;
-            }
-            else
-            {
-                Data.campfiresReq = 0;
-            }
-            if (Data.HeartLanternsEnabled)
-            {
-                Data.heartLanternsReq = _solidBlocks;
-            }
-            else
-            {
-                Data.heartLanternsReq = 0;
-            }
-            if (Data.ClearAreaEnabled)
-            {
-                Data.bombReq = _width * _height / 100;
-            }
-            else
-            {
-                Data.bombReq = 0;
-            }
+                Data.platformReq = _width * _floors - _solidBlocks;
+                Data.stoneBlockReq = _solidBlocks;
+                if (Data.CampfiresEnabled)
+                {
+                    Data.campfiresReq = _solidBlocks;
+                }
+                else
+                {
+                    Data.campfiresReq = 0;
+                }
+                if (Data.HeartLanternsEnabled)
+                {
+                    Data.heartLanternsReq = _solidBlocks;
+                }
+                else
+                {
+                    Data.heartLanternsReq = 0;
+                }
+                if (Data.ClearAreaEnabled)
+                {
+                    Data.bombReq = _width * _height / 100;
+                }
+                else
+                {
+                    Data.bombReq = 0;
+                }
 
-            Data.validStats = true;
+                Data.validStats = true;
 
-            matPlatformCountUI.SetText(Data.platformReq.ToString());
-            matStoneCountUI.SetText(Data.stoneBlockReq.ToString());
-            matcampfiresCountUI.SetText(Data.campfiresReq.ToString());
-            matHeartLanternsCountUI.SetText(Data.heartLanternsReq.ToString());
-            matBombCountUI.SetText(Data.bombReq.ToString());
+                matPlatformCountUI.SetText(Data.platformReq.ToString());
+                matStoneCountUI.SetText(Data.stoneBlockReq.ToString());
+                matcampfiresCountUI.SetText(Data.campfiresReq.ToString());
+                matHeartLanternsCountUI.SetText(Data.heartLanternsReq.ToString());
+                matBombCountUI.SetText(Data.bombReq.ToString());
+            }
+            
         }
 
         void UpdateWeightCirclesColors()
@@ -821,6 +1060,8 @@ namespace ArenaBuilder.Content
             texBox3.timer = 0;
             texBox4.inverse = false;
             texBox4.timer = 0;
+            if(!Data.startInitiated)
+                SoundEngine.PlaySound(SoundID.MenuTick);
         }
 
         void ArenaHeightUI(UIPanel panel)
@@ -1015,33 +1256,15 @@ namespace ArenaBuilder.Content
             {
                 sysDescAppended = true;
                 panel.Append(sysDesc);
+                SoundEngine.PlaySound(SoundID.MenuOpen);
             }
             else
             {
                 sysDescAppended = false;
                 sysDesc.Remove();
+                SoundEngine.PlaySound(SoundID.MenuClose);
             }
         } 
-    }
-
-    internal class ColonUI: UIElement
-    {
-        Rectangle size;
-        private static readonly Asset<DynamicSpriteFont> MouseTextFont = FontAssets.ItemStack;
-
-        protected override void DrawSelf(SpriteBatch spriteBatch)
-        {
-            Texture2D tex = ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Colon").Value;
-
-            _ = MouseTextFont.Value;
-
-            CalculatedStyle dimensions = GetDimensions();
-            Point point1 = new((int)dimensions.X, (int)dimensions.Y);
-            int width = (int)Math.Ceiling(dimensions.Width);
-            int height = (int)Math.Ceiling(dimensions.Height);
-            size = new Rectangle(point1.X, point1.Y, width, height);
-            spriteBatch.Draw(tex, size, Color.White);
-        }
     }
 
     internal class ArenaCampfiresUIElem : UIElement
@@ -1154,7 +1377,8 @@ namespace ArenaBuilder.Content
         public bool inverse = false;
         public int texBoxIndex = 0;
         string drawString;
-
+        public readonly SoundStyle menuInvalid = new("ArenaBuilder/Content/Sounds/MenuInvalid");
+        public ButtonState oldMouseState;
         protected override void DrawSelf(SpriteBatch spriteBatch)
         {
             Texture2D whiteTex = ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Input").Value;
@@ -1220,16 +1444,24 @@ namespace ArenaBuilder.Content
             MouseState mouse = Mouse.GetState();
             bool mouseOver = mouse.X > dim.X && mouse.X < dim.X + dim.Width && mouse.Y > dim.Y && mouse.Y < dim.Y + dim.Height;
 
-            if (mouse.LeftButton == ButtonState.Pressed)
+            if (mouse.LeftButton == ButtonState.Pressed && oldMouseState == ButtonState.Released)
             {
-                LeftClick(mouseOver);
+                if (!Data.startInitiated)
+                {
+                    LeftClick(mouseOver);
+                }
+                else
+                {
+                    if(mouseOver)
+                    SoundEngine.PlaySound(menuInvalid);
+                }
             }
 
-            if (focused)
+            if (focused && !Data.startInitiated)
             {
                 HandleTextInput();
             }
-
+            oldMouseState = mouse.LeftButton;
             base.Update(gameTime);
         }
 
@@ -1294,7 +1526,7 @@ namespace ArenaBuilder.Content
                 focused = false;
             }
 
-            UpdateRequirements();
+            OnKeyPressedUpdateRequirements();
         }
 
         void ChangeString(string keyPressed)
@@ -1345,64 +1577,67 @@ namespace ArenaBuilder.Content
             }
         }
 
-        public void UpdateRequirements()
+        public static void OnKeyPressedUpdateRequirements()
         {
-            if (Data.Width == "" || Data.Height == "" || Data.Floors == "" || Data.SBSpacing == "" || int.Parse(Data.Width) == 0 || int.Parse(Data.Height) == 0 || int.Parse(Data.Floors) == 0 || int.Parse(Data.SBSpacing) == 0)
+            if (!Data.startInitiated)
             {
-                Data.validStats = false;
-                return;
-            }
-                
-            
-            int _width = int.Parse(Data.Width);
-            int _height = int.Parse(Data.Height);
-            int _floors = int.Parse(Data.Floors);
-            int _SBSpacing = int.Parse(Data.SBSpacing);
-            Data.platformReq = (int)(_width * _floors / 2.5f);
-            Data.stoneBlockReq = _width / _SBSpacing;
-            if (Data.CampfiresEnabled)
-                Data.campfiresReq = _SBSpacing;
-            if (Data.HeartLanternsEnabled)
-                Data.heartLanternsReq = _SBSpacing;
-            if (Data.ClearAreaEnabled)
-                Data.bombReq = (int)(_width * _height / 100f);
-
-            int _solidBlocks = 0;
-
-            for(int k = 0; k < _width * _floors; k += _SBSpacing)
-            {
-                _solidBlocks++;
-            }
+                if (Data.Width == "" || Data.Height == "" || Data.Floors == "" || Data.SBSpacing == "" || int.Parse(Data.Width) == 0 || int.Parse(Data.Height) == 0 || int.Parse(Data.Floors) == 0 || int.Parse(Data.SBSpacing) == 0)
+                {
+                    Data.validStats = false;
+                    return;
+                }
 
 
-            Data.platformReq = _width * _floors - _solidBlocks;
-            Data.stoneBlockReq = _solidBlocks;
-            if (Data.CampfiresEnabled)
-            {
-                Data.campfiresReq = _solidBlocks;
-            }
-            else
-            {
-                Data.campfiresReq = 0;
-            }
-            if (Data.HeartLanternsEnabled)
-            {
-                Data.heartLanternsReq = _solidBlocks;
-            }
-            else
-            {
-                Data.heartLanternsReq = 0;
-            }
-            if (Data.ClearAreaEnabled)
-            {
-                Data.bombReq = _width * _height / 100;
-            }
-            else
-            {
-                Data.bombReq = 0;
-            }
+                int _width = int.Parse(Data.Width);
+                int _height = int.Parse(Data.Height);
+                int _floors = int.Parse(Data.Floors);
+                int _SBSpacing = int.Parse(Data.SBSpacing);
+                Data.platformReq = (int)(_width * _floors / 2.5f);
+                Data.stoneBlockReq = _width / _SBSpacing;
+                if (Data.CampfiresEnabled)
+                    Data.campfiresReq = _SBSpacing;
+                if (Data.HeartLanternsEnabled)
+                    Data.heartLanternsReq = _SBSpacing;
+                if (Data.ClearAreaEnabled)
+                    Data.bombReq = (int)(_width * _height / 100f);
 
-            Data.validStats = true;
+                int _solidBlocks = 0;
+
+                for (int k = 0; k < _width * _floors; k += _SBSpacing)
+                {
+                    _solidBlocks++;
+                }
+
+
+                Data.platformReq = _width * _floors - _solidBlocks;
+                Data.stoneBlockReq = _solidBlocks;
+                if (Data.CampfiresEnabled)
+                {
+                    Data.campfiresReq = _solidBlocks;
+                }
+                else
+                {
+                    Data.campfiresReq = 0;
+                }
+                if (Data.HeartLanternsEnabled)
+                {
+                    Data.heartLanternsReq = _solidBlocks;
+                }
+                else
+                {
+                    Data.heartLanternsReq = 0;
+                }
+                if (Data.ClearAreaEnabled)
+                {
+                    Data.bombReq = _width * _height / 100;
+                }
+                else
+                {
+                    Data.bombReq = 0;
+                }
+
+                Data.validStats = true;
+            }
         }
 
         private void LeftClick(bool mouseOver)
@@ -1430,7 +1665,7 @@ namespace ArenaBuilder.Content
         public bool coloredSlot = false;
         Color drawColor;
         public bool input = false;
-        readonly int inputType = ModContent.ItemType<BrokenArenaModule>();
+        
         protected override void DrawSelf(SpriteBatch spriteBatch)
         {
             Texture2D tex = ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Input").Value;
@@ -1450,23 +1685,21 @@ namespace ArenaBuilder.Content
                     drawColor = Color.LightGray;
                 if (Data.inputSlotItem.type != ItemID.None)
                 {
-                    if (hovering && Data.inputSlotItem.type != inputType)
+                    if (hovering && Data.wrongInputItem)
                         drawColor = Color.White.MultiplyRGB(Color.Red);
-                    if (hovering && Data.inputSlotItem.type == inputType)
+                    if (hovering && !Data.wrongInputItem)
                         drawColor = Color.White.MultiplyRGB(Color.Green);
-                    if (!hovering && Data.inputSlotItem.type != inputType)
+                    if (!hovering && Data.wrongInputItem)
                         drawColor = Color.White.MultiplyRGB(Color.DarkRed);
-                    if (!hovering && Data.inputSlotItem.type == inputType)
+                    if (!hovering && !Data.wrongInputItem)
                         drawColor = Color.White.MultiplyRGB(Color.DarkGreen);
                 }
 
                 spriteBatch.Draw(tex, size, drawColor);
 
-                if (Data.inputSlotItem.type != ItemID.None)
+                if (Data.inputSlotItem.type != ItemID.None && input)
                 {
-                    Main.instance.LoadItem(Data.inputSlotItem.type);
-                    spriteBatch.Draw(TextureAssets.Item[Data.inputSlotItem.type].Value, size, TextureAssets.Item[Data.inputSlotItem.type].Value.Frame(), Color.White);
-                    Main.DrawItemIcon(spriteBatch, Data.inputSlotItem, Main.MouseWorld - Main.screenPosition, Color.White, 1);
+                        DrawItem();
                 }
             }
             else
@@ -1477,6 +1710,33 @@ namespace ArenaBuilder.Content
                     drawColor = Color.LightGray;
                 spriteBatch.Draw(tex, size, drawColor);
             }
+            if (!input && Data.outputItem.type != ItemID.None)
+            {
+                DrawOutputItem();
+            }
+        }
+
+        private void DrawOutputItem()
+        {
+            Texture2D itemTexture = TextureAssets.Item[Data.outputItem.type].Value;
+            Rectangle rectangle2 = Main.itemAnimations[Data.outputItem.type]?.GetFrame(itemTexture) ?? itemTexture.Frame(); // thx jopojelly
+
+            Main.EntitySpriteDraw(
+                TextureAssets.Item[Data.outputItem.type].Value, size.Center.ToVector2(),
+                rectangle2, Color.White, 0,
+                rectangle2.Size() / 2, 1, SpriteEffects.None, 1);
+        }
+
+        void DrawItem()
+        {
+
+            Texture2D itemTexture = TextureAssets.Item[Data.inputSlotItem.type].Value;
+            Rectangle rectangle2 = Main.itemAnimations[Data.inputSlotItem.type]?.GetFrame(itemTexture) ?? itemTexture.Frame(); // thx jopojelly
+
+            Main.EntitySpriteDraw(
+                TextureAssets.Item[Data.inputSlotItem.type].Value, size.Center.ToVector2(),
+                rectangle2, Color.White, 0,
+                rectangle2.Size() / 2, 1, SpriteEffects.None, 1);
         }
     }
 
@@ -1502,21 +1762,53 @@ namespace ArenaBuilder.Content
 
     internal class StartButtonUIElem : UIElement
     {
+        static public UIData Data => Main.LocalPlayer.GetModPlayer<UIData>();
         Rectangle size;
         private static readonly Asset<DynamicSpriteFont> MouseTextFont = FontAssets.ItemStack;
-        public bool enabled = true;
+        public bool canStart = false;
+        public bool building = false;
+        public bool hovering = false;
+        Color drawColor = Color.White;
         protected override void DrawSelf(SpriteBatch spriteBatch)
         {
-            Texture2D tex = ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Start").Value;
+            Texture2D startTex = ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Start").Value;
+            Texture2D abortTex = ModContent.Request<Texture2D>("ArenaBuilder/Content/Images/Abort").Value;
             _ = MouseTextFont.Value;
+
+            if(Data.validStats && !Data.wrongInputItem && !building)
+            {
+                canStart = true;
+            }
+            else
+            {
+                canStart = false;
+            }
+
+            if (canStart)
+            {
+                drawColor = Color.LightGreen;
+            }
+            else
+            {
+                drawColor = Color.White;
+            }
+
+            if (hovering)
+                drawColor = Color.Multiply(Color.LightGray, 1f);
+
+            
 
             CalculatedStyle dimensions = GetDimensions();
             Point point1 = new((int)dimensions.X, (int)dimensions.Y);
             int width = (int)Math.Ceiling(dimensions.Width);
             int height = (int)Math.Ceiling(dimensions.Height);
             size = new Rectangle(point1.X, point1.Y, width, height);
-            if (enabled)
-                spriteBatch.Draw(tex, size, Color.White);
+            if (!Data.startInitiated)
+                spriteBatch.Draw(startTex, size, drawColor);
+            if (Data.startInitiated)
+            {
+                spriteBatch.Draw(abortTex, size, drawColor);
+            }
         }
     }
 

@@ -1,17 +1,12 @@
-﻿using Microsoft.Xna.Framework;
-using System.Collections.Generic;
-using Terraria;
+﻿using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.ModLoader.IO;
-using Terraria.DataStructures;
-using System;
 
 namespace ArenaBuilder.Content.Items
 {
-    class BrokenArenaModule : ModItem
+    class ArenaModule : ModItem
     {
-        public override string Texture => "ArenaBuilder/Content/Images/BrokenArenaModule";
+        public override string Texture => "ArenaBuilder/Content/Images/ArenaModule";
         public override void SetDefaults()
         {
             Item.value = 1;
@@ -26,7 +21,16 @@ namespace ArenaBuilder.Content.Items
             Item.scale = 0.25f;
             Item.autoReuse = false;
             Item.consumable = true;
-            Item.createTile = ModContent.TileType<Tiles.ArenaBuilderTile>();
+            Item.createTile = ModContent.TileType<Tiles.ArenaCustomizerTile>();
+        }
+
+        public override void AddRecipes()
+        {
+            var resultItem = ModContent.GetInstance<ArenaModule>();
+
+            resultItem.CreateRecipe()
+                .AddIngredient(RecipeGroupID.Wood, 20)
+                .Register();
         }
     }
 }

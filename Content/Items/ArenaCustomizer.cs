@@ -1,15 +1,10 @@
-﻿using Microsoft.Xna.Framework;
-using System.Collections.Generic;
-using Terraria;
+﻿using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.ModLoader.IO;
-using Terraria.DataStructures;
-using System;
 
 namespace ArenaBuilder.Content.Items
 {
-    class ArenaBuilder : ModItem
+    class ArenaCustomizer : ModItem
     {
         public override string Texture => "ArenaBuilder/Content/Images/ArenaBuilderItem";
         public override void SetDefaults()
@@ -25,7 +20,19 @@ namespace ArenaBuilder.Content.Items
             Item.useTime = 20;
             Item.autoReuse = false;
             Item.consumable = true;
-            Item.createTile = ModContent.TileType<Tiles.ArenaBuilderTile>();
+            Item.createTile = ModContent.TileType<Tiles.ArenaCustomizerTile>();
+            
+        }
+
+        public override void AddRecipes()
+        {
+            var resultItem = ModContent.GetInstance<ArenaCustomizer>();
+
+            resultItem.CreateRecipe()
+                .AddIngredient(RecipeGroupID.Wood, 50)
+                .AddIngredient(RecipeGroupID.IronBar, 4)
+                .AddTile(TileID.WorkBenches)
+                .Register();
         }
     }
 }

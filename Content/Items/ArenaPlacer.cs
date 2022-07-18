@@ -5,17 +5,16 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.DataStructures;
-using System;
 
 namespace ArenaBuilder.Content.Items
 {
     class ArenaPlacer : ModItem
     {
-        int width, height, solidBlockSpacing = 0;
-        int floors = 0;
-        string theme = "None";
-        bool placeHearts, placeFireplaces, clearArea = false;
-        string placeHeartsColor, placeFireplacesColor, clearAreaColor, themeColor = default;
+        public int width, height, solidBlockSpacing = 0;
+        public int floors = 0;
+        public string theme = "None";
+        public bool placeHearts, placeFireplaces, clearArea = false;
+        public string placeHeartsColor, placeFireplacesColor, clearAreaColor, themeColor = default;
 
         public override string Texture => "ArenaBuilder/Content/Images/ArenaPlacerItem";
 
@@ -40,18 +39,6 @@ namespace ArenaBuilder.Content.Items
             Item.consumable = true;
         }
 
-        private static void ChangeStats(Recipe recipe, Item item, string stat)
-        {
-            ArenaPlacer instantArena = (ArenaPlacer)item.ModItem;
-        }
-
-        private static void ChangeTheme(Recipe recipe, Item item, string key)
-        {
-            ArenaPlacer instantArena = (ArenaPlacer)item.ModItem;
-            instantArena.theme = key;
-            
-        }
-
         public override void ModifyTooltips(List<TooltipLine> tooltips)
         {
             tooltips.Clear();
@@ -68,14 +55,14 @@ namespace ArenaBuilder.Content.Items
             clearAreaColor = ReturnColor(clearArea);
             themeColor = ReturnThemeColor(theme);
 
-            var line1 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Width: ]" + "[c/99FF33:" + width.ToString() + "]");
-            var line2 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Height: ]" + "[c/99FF33:" + height.ToString() + "]");
-            var line3 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Floors: ]" + "[c/99FF33:" + floors.ToString() + "]");
-            var line4 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Campfire/Heart lantern spacing: ]" + "[c/99FF33:" + solidBlockSpacing.ToString() + "]");
-            var line5 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Theme: ]" + themeColor.ToString() + theme.ToString() + "]");
-            var line6 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Heart lanterns: ]" + placeHeartsColor.ToString() + placeHearts.ToString() + "]");
-            var line7 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Arena Fireplaces: ]" + placeFireplacesColor.ToString() + placeFireplaces.ToString() + "]");
-            var line8 = new TooltipLine(Mod, "ArenaStats", "[c/FF66B2:Clearing Area: ]" + clearAreaColor.ToString() + clearArea.ToString() + "]");
+            var line1 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Width: ]" + "[c/99FF33:" + width.ToString() + "]");
+            var line2 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Height: ]" + "[c/99FF33:" + height.ToString() + "]");
+            var line3 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Floors: ]" + "[c/99FF33:" + floors.ToString() + "]");
+            var line4 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Campfire/Heart lantern spacing: ]" + "[c/99FF33:" + solidBlockSpacing.ToString() + "]");
+            var line5 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Theme: ]" + themeColor.ToString() + theme.ToString() + "]");
+            var line6 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Heart lanterns: ]" + placeHeartsColor.ToString() + placeHearts.ToString() + "]");
+            var line7 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Arena Fireplaces: ]" + placeFireplacesColor.ToString() + placeFireplaces.ToString() + "]");
+            var line8 = new TooltipLine(Mod, "ArenaStats", "[c/404040:Clearing Area: ]" + clearAreaColor.ToString() + clearArea.ToString() + "]");
 
             tooltips.Add(line1);
             tooltips.Add(line2);
@@ -264,12 +251,19 @@ namespace ArenaBuilder.Content.Items
                     {
                         WorldGen.PlaceTile(mousePosX + j, mousePosY - (floorHeight * currentPlatformFloor), solidBlock);
                         WorldGen.PlaceTile(mousePosX - j, mousePosY - (floorHeight * currentPlatformFloor), solidBlock);
+                        if(j == 0)
+                        {
+                            solidBlockPosList.Add(new Vector2(mousePosX + j, mousePosY - (floorHeight * currentPlatformFloor)));
+                            fireplacePosList.Add(new Vector2(mousePosX + j + (solidBlockSpacing / 2), mousePosY - (floorHeight * currentPlatformFloor)));
+                        }
+                        else
+                        {
+                            solidBlockPosList.Add(new Vector2(mousePosX + j, mousePosY - (floorHeight * currentPlatformFloor)));
+                            solidBlockPosList.Add(new Vector2(mousePosX - j, mousePosY - (floorHeight * currentPlatformFloor)));
 
-                        solidBlockPosList.Add(new Vector2(mousePosX + j, mousePosY - (floorHeight * currentPlatformFloor)));
-                        solidBlockPosList.Add(new Vector2(mousePosX - j, mousePosY - (floorHeight * currentPlatformFloor)));
-
-                        fireplacePosList.Add(new Vector2(mousePosX + j + (solidBlockSpacing / 2), mousePosY - (floorHeight * currentPlatformFloor)));
-                        fireplacePosList.Add(new Vector2(mousePosX - j - (solidBlockSpacing / 2), mousePosY - (floorHeight * currentPlatformFloor)));
+                            fireplacePosList.Add(new Vector2(mousePosX + j + (solidBlockSpacing / 2), mousePosY - (floorHeight * currentPlatformFloor)));
+                            fireplacePosList.Add(new Vector2(mousePosX - j - (solidBlockSpacing / 2), mousePosY - (floorHeight * currentPlatformFloor)));
+                        }
                     }
                     else
                     {

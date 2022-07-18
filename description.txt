@@ -1,4 +1,6 @@
 Customizable Arena adds 2 items and 1 tile to craft instant arena builder, so far you can set arena width,
 height, floors, will it clear area or not(normally used for underground arenas), theme, campfires and/or heart lanterns placement.
 
-to start you will need 20 wood for broken arena module and 50 stone blocks with 4 iron ingots for arena customizer, last item is obtainable only through arena customizer with stats you decide on.
+For starters you will need 20 wood for arena module and 50 stone blocks with 4 iron ingots for arena customizer, last item is obtainable only through arena customizer with stats you decide on.
+
+If you have any ideas or request for this mod let me know.
